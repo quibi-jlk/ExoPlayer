@@ -17,6 +17,7 @@ package com.google.android.exoplayer2.surfacedemo;
 
 import android.app.Activity;
 import android.content.Intent;
+import android.graphics.Rect;
 import android.net.Uri;
 import android.os.Bundle;
 import android.view.Surface;
@@ -61,6 +62,7 @@ public final class MainActivity extends Activity {
   private static final String OWNER_EXTRA = "owner";
 
   private boolean isOwner;
+  private int currentRotation = Surface.ROTATION_0;
   @Nullable private PlayerControlView playerControlView;
   @Nullable private SurfaceView fullScreenView;
   @Nullable private SurfaceView nonFullScreenView;
@@ -103,12 +105,12 @@ public final class MainActivity extends Activity {
       } else if (i == 2) {
         Button button = new Button(/* context= */ this);
         view = button;
-        button.setText(getString(R.string.new_activity_label));
+        button.setText(getString(R.string.rotate_label));
         button.setOnClickListener(
-            v ->
-                startActivity(
-                    new Intent(MainActivity.this, MainActivity.class)
-                        .putExtra(OWNER_EXTRA, /* value= */ false)));
+            v -> {
+              rotate90Degrees();
+              reparent(currentOutputView);
+            });
       } else {
         SurfaceView surfaceView = new SurfaceView(this);
         view = surfaceView;
@@ -262,7 +264,24 @@ public final class MainActivity extends Activity {
             });
   }
 
-  private static void reparent(@Nullable SurfaceView surfaceView) {
+  private void rotate90Degrees() {
+    switch (currentRotation) {
+      case Surface.ROTATION_0:
+        currentRotation = Surface.ROTATION_90;
+        break;
+      case Surface.ROTATION_90:
+        currentRotation = Surface.ROTATION_180;
+        break;
+      case Surface.ROTATION_180:
+        currentRotation = Surface.ROTATION_270;
+        break;
+      case Surface.ROTATION_270:
+        currentRotation = Surface.ROTATION_0;
+        break;
+    }
+  }
+
+  private void reparent(@Nullable SurfaceView surfaceView) {
     SurfaceControl surfaceControl = Assertions.checkNotNull(MainActivity.surfaceControl);
     if (surfaceView == null) {
       new SurfaceControl.Transaction()
@@ -272,9 +291,12 @@ public final class MainActivity extends Activity {
           .apply();
     } else {
       SurfaceControl newParentSurfaceControl = surfaceView.getSurfaceControl();
+      Rect sourceRect = new Rect(0, 0, surfaceView.getWidth(), surfaceView.getHeight());
+      Rect destRect = new Rect(0, 0, surfaceView.getWidth(), surfaceView.getHeight());
       new SurfaceControl.Transaction()
           .reparent(surfaceControl, newParentSurfaceControl)
           .setBufferSize(surfaceControl, surfaceView.getWidth(), surfaceView.getHeight())
+          .setGeometry(surfaceControl, sourceRect, destRect, currentRotation)
           .setVisibility(surfaceControl, /* visible= */ true)
           .apply();
     }
